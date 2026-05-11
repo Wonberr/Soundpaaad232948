@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>SoundBoard Pro</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+        :root{--bg:#000;--bg2:#0d0d0d;--bg3:#1a1a1a;--bg4:#252525;--text:#fff;--text2:rgba(255,255,255,.6);--text3:rgba(255,255,255,.35);--blue:#0a84ff;--purple:#bf5af2;--orange:#ff9f0a;--pink:#ff375f;--green:#30d158;--cyan:#64d2ff;--red:#ff453a;--glass:rgba(255,255,255,.08);--safe-b:env(safe-area-inset-bottom,0px);--safe-t:env(safe-area-inset-top,0px)}
+        html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display',sans-serif}
+        .app{height:100%;display:flex;flex-direction:column}
+        
+        /* Header */
+        .hdr{padding:16px 20px;padding-top:calc(16px + var(--safe-t));background:var(--bg)}
+        .hdr h1{font-size:32px;font-weight:800;letter-spacing:-.5px}
+        .hdr p{font-size:13px;color:var(--text3);margin-top:2px}
+        
+        /* Search */
+        .srch{padding:0 20px 16px;display:none}
+        .srch.show{display:block}
+        .srch-box{display:flex;align-items:center;gap:12px;background:var(--bg3);border-radius:14px;padding:12px 16px}
+        .srch-box:focus-within{box-shadow:0 0 0 2px rgba(10,132,255,.4)}
+        .srch-box svg{width:20px;height:20px;color:var(--text3);flex-shrink:0}
+        .srch-box input{flex:1;background:none;border:none;outline:none;color:var(--text);font-size:17px}
+        .srch-box input::placeholder{color:var(--text3)}
+        
+        /* Content */
+        .cnt{flex:1;overflow:hidden;position:relative}
+        .tab{position:absolute;inset:0;overflow-y:auto;padding:0 16px 120px;opacity:0;transform:translateX(20px);pointer-events:none;transition:all .35s cubic-bezier(.32,.72,0,1);-webkit-overflow-scrolling:touch}
+        .tab.on{opacity:1;transform:none;pointer-events:auto}
+        .tab.player{padding-bottom:200px}
+        
+        /* Grid */
+        .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+        @media(min-width:400px){.grid{grid-template-columns:repeat(4,1fr)}}
+        
+        /* Sound Button */
+        .sbtn{position:relative;aspect-ratio:1;border-radius:22px;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:10px 6px;overflow:hidden;transition:transform .12s cubic-bezier(.32,.72,0,1),box-shadow .2s;box-shadow:0 4px 12px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.15)}
+        .sbtn::after{content:'';position:absolute;inset:0;background:linear-gradient(165deg,rgba(255,255,255,.2) 0%,transparent 40%,rgba(0,0,0,.15) 100%);pointer-events:none}
+        .sbtn:active{transform:scale(.92)}
+        .sbtn.play{animation:pulse 1.2s ease-out infinite}
+        @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,255,255,.4)}70%{box-shadow:0 0 0 12px transparent}100%{box-shadow:0 0 0 0 transparent}}
+        .sbtn.load{opacity:.7}
+        .sbtn.load .sico{animation:spin 1s linear infinite}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .sico{width:26px;height:26px;color:rgba(255,255,255,.95);filter:drop-shadow(0 2px 3px rgba(0,0,0,.4));z-index:1}
+        .stit{font-size:10px;font-weight:600;color:rgba(255,255,255,.95);text-align:center;line-height:1.2;max-width:100%;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;text-shadow:0 1px 2px rgba(0,0,0,.5);z-index:1}
+        
+        /* Colors */
+        .c-blue{background:linear-gradient(145deg,#0a84ff,#0066cc)}
+        .c-purple{background:linear-gradient(145deg,#bf5af2,#8e3db8)}
+        .c-orange{background:linear-gradient(145deg,#ff9f0a,#e68a00)}
+        .c-pink{background:linear-gradient(145deg,#ff375f,#d62b4e)}
+        .c-green{background:linear-gradient(145deg,#30d158,#28a745)}
+        .c-cyan{background:linear-gradient(145deg,#64d2ff,#4ab8e8)}
+        
+        /* Loading */
+        .ldng{display:flex;flex-direction:column;align-items:center;gap:12px;padding:32px 0}
+        .ldng.hide{display:none}
+        .spin{width:32px;height:32px;border:3px solid var(--bg4);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite}
+        .ldng span{font-size:14px;color:var(--text3)}
+        .endmsg{text-align:center;padding:24px;color:var(--text3);font-size:14px;display:none}
+        .endmsg.show{display:block}
+        
+        /* Empty */
+        .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 32px;text-align:center}
+        .empty svg{width:64px;height:64px;color:var(--text3);margin-bottom:20px;opacity:.5}
+        .empty h3{font-size:20px;font-weight:700;margin-bottom:8px}
+        .empty p{font-size:15px;color:var(--text3)}
+        
+        /* Mini Player */
+        .mplayer{position:fixed;bottom:calc(80px + var(--safe-b) + 8px);left:12px;right:12px;height:72px;background:rgba(28,28,30,.9);border:1px solid var(--glass);border-radius:18px;backdrop-filter:blur(40px);-webkit-backdrop-filter:blur(40px);display:flex;align-items:center;padding:0 14px;gap:12px;z-index:100;transform:translateY(120px);opacity:0;transition:all .4s cubic-bezier(.32,.72,0,1)}
+        .mplayer.on{transform:none;opacity:1}
+        .mpart{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+        .mpart svg{width:22px;height:22px;color:#fff}
+        .mpinfo{flex:1;min-width:0}
+        .mpname{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .mpwave{height:20px;margin-top:6px;display:flex;align-items:flex-end;gap:2px}
+        .wbar{width:3px;background:var(--blue);border-radius:2px;transition:height .1s}
+        .mpctrls{display:flex;gap:6px}
+        .pbtn{width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.1);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s}
+        .pbtn:active{transform:scale(.9);background:rgba(255,255,255,.15)}
+        .pbtn svg{width:18px;height:18px;color:var(--text)}
+        .pbtn.act{background:var(--blue)}
+        .pbtn.sm{width:32px;height:32px}
+        .pbtn.sm svg{width:14px;height:14px}
+        
+        /* Nav */
+        .nav{position:fixed;bottom:0;left:0;right:0;height:calc(80px + var(--safe-b));padding-bottom:var(--safe-b);background:rgba(0,0,0,.95);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);display:flex;justify-content:space-around;padding-top:8px;z-index:200;border-top:1px solid rgba(255,255,255,.05)}
+        .nitem{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 16px;border:none;background:none;cursor:pointer}
+        .nitem svg{width:26px;height:26px;color:var(--text3);transition:color .2s}
+        .nitem span{font-size:10px;font-weight:500;color:var(--text3);transition:color .2s}
+        .nitem.on svg,.nitem.on span{color:var(--blue)}
+        
+        /* FAB */
+        .fab{position:fixed;bottom:calc(100px + var(--safe-b));right:20px;width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,var(--blue),var(--purple));border:none;box-shadow:0 6px 24px rgba(10,132,255,.4);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:150;opacity:0;transform:scale(0);transition:all .35s cubic-bezier(.32,.72,0,1)}
+        .fab.on{opacity:1;transform:scale(1)}
+        .fab.player{bottom:calc(180px + var(--safe-b))}
+        .fab:active{transform:scale(.9)}
+        .fab svg{width:26px;height:26px;color:#fff}
+        
+        /* Context */
+        .ctx{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:300;opacity:0;pointer-events:none;transition:opacity .3s}
+        .ctx.on{opacity:1;pointer-events:auto}
+        .ctxm{position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-radius:20px 20px 0 0;padding:8px 20px calc(28px + var(--safe-b));z-index:301;transform:translateY(100%);transition:transform .4s cubic-bezier(.32,.72,0,1)}
+        .ctx.on .ctxm{transform:none}
+        .ctxh{width:36px;height:4px;background:var(--bg4);border-radius:2px;margin:8px auto 20px}
+        .ctxt{font-size:18px;font-weight:700;text-align:center;margin-bottom:4px}
+        .ctxs{font-size:13px;color:var(--text3);text-align:center;margin-bottom:24px}
+        .ctxa{display:flex;flex-direction:column;gap:10px}
+        .ctxbtn{display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--bg3);border-radius:14px;border:none;cursor:pointer;width:100%;text-align:left;transition:all .15s}
+        .ctxbtn:active{transform:scale(.98);background:var(--bg4)}
+        .ctxbtn .ico{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+        .ctxbtn .ico svg{width:20px;height:20px;color:#fff}
+        .ctxbtn h4{font-size:16px;font-weight:600;color:var(--text)}
+        .ctxbtn p{font-size:12px;color:var(--text3);margin-top:2px}
+        
+        /* Modal */
+        .modal{position:fixed;inset:0;background:var(--bg);z-index:400;opacity:0;pointer-events:none;transition:opacity .35s}
+        .modal.on{opacity:1;pointer-events:auto}
+        .modalc{height:100%;display:flex;flex-direction:column;transform:translateY(40px);opacity:0;transition:all .4s cubic-bezier(.32,.72,0,1)}
+        .modal.on .modalc{transform:none;opacity:1}
+        .mhdr{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;padding-top:calc(16px + var(--safe-t))}
+        .mclose{width:36px;height:36px;border-radius:50%;background:var(--bg3);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer}
+        .mclose svg{width:20px;height:20px;color:var(--text)}
+        .mtitle{font-size:17px;font-weight:700}
+        .msave{padding:10px 20px;background:var(--blue);border:none;border-radius:50px;color:#fff;font-size:15px;font-weight:600;cursor:pointer;transition:all .15s}
+        .msave:disabled{opacity:.4;cursor:not-allowed}
+        .msave:not(:disabled):active{transform:scale(.95)}
+        .mbody{flex:1;overflow-y:auto;padding:8px 20px 40px}
+        
+        /* Form */
+        .fgrp{margin-bottom:24px}
+        .fgrp label{display:block;font-size:13px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px}
+        .finput{width:100%;padding:14px 16px;background:var(--bg3);border:1px solid var(--glass);border-radius:12px;color:var(--text);font-size:16px;outline:none;transition:border-color .2s}
+        .finput:focus{border-color:var(--blue)}
+        .finput::placeholder{color:var(--text3)}
+        .srcopt{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+        .srcbtn{aspect-ratio:1;border-radius:18px;background:var(--bg3);border:2px solid transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:all .2s}
+        .srcbtn.on{border-color:var(--blue);background:rgba(10,132,255,.1)}
+        .srcbtn:active{transform:scale(.95)}
+        .srcbtn svg{width:28px;height:28px;color:var(--text2)}
+        .srcbtn.on svg{color:var(--blue)}
+        .srcbtn span{font-size:11px;font-weight:600;color:var(--text2)}
+        .srcbtn.on span{color:var(--blue)}
+        .urlinp{display:none;margin-top:16px}
+        .urlinp.show{display:flex;gap:10px}
+        .urlinp input{flex:1}
+        .urlinp button{padding:14px 20px;background:var(--blue);border:none;border-radius:12px;color:#fff;font-weight:600;cursor:pointer;white-space:nowrap}
+        .urlinp button:disabled{opacity:.5}
+        .colors{display:flex;gap:10px;flex-wrap:wrap}
+        .colopt{width:44px;height:44px;border-radius:50%;border:3px solid transparent;cursor:pointer;transition:all .2s}
+        .colopt:active{transform:scale(.9)}
+        .colopt.on{border-color:#fff;box-shadow:0 0 0 2px var(--blue)}
+        .prev{background:var(--bg3);border-radius:16px;padding:20px;text-align:center}
+        .prevbtn{width:100px;height:100px;border-radius:28px;border:none;display:flex;flex-direction:column;align-items:center;justify-content:center;margin:0 auto;cursor:pointer;transition:transform .2s}
+        .prevbtn:active{transform:scale(.92)}
+        .prevbtn svg{width:32px;height:32px;color:#fff;margin-bottom:6px}
+        .prevbtn span{font-size:12px;font-weight:600;color:#fff}
+        .audok{display:none;align-items:center;justify-content:center;gap:8px;margin-top:16px;color:var(--green);font-size:14px}
+        .audok.show{display:flex}
+        .audok svg{width:18px;height:18px}
+        .savebtn{width:100%;padding:16px;background:linear-gradient(135deg,var(--blue),var(--purple));border:none;border-radius:14px;color:#fff;font-size:17px;font-weight:600;cursor:pointer;margin-top:20px;transition:all .2s}
+        .savebtn:active{transform:scale(.98)}
+        .savebtn:disabled{opacity:.5;cursor:not-allowed}
+        
+        /* About/Settings */
+        .card{background:var(--bg3);border-radius:16px;padding:20px;margin-bottom:16px}
+        .card h3{font-size:13px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px}
+        .sitem{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--glass)}
+        .sitem:last-child{border-bottom:none}
+        .sitem .lbl{display:flex;align-items:center;gap:12px}
+        .sitem .lbl svg{width:22px;height:22px;color:var(--blue)}
+        .sitem .lbl span{font-size:16px}
+        .toggle{width:51px;height:31px;background:var(--bg4);border-radius:16px;position:relative;cursor:pointer;transition:background .2s}
+        .toggle.on{background:var(--green)}
+        .toggle::after{content:'';position:absolute;width:27px;height:27px;background:#fff;border-radius:50%;top:2px;left:2px;transition:transform .2s;box-shadow:0 2px 4px rgba(0,0,0,.2)}
+        .toggle.on::after{transform:translateX(20px)}
+        .abthdr{text-align:center;padding:30px 0}
+        .abthdr .logo{width:80px;height:80px;background:linear-gradient(135deg,var(--blue),var(--purple));border-radius:20px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
+        .abthdr .logo svg{width:40px;height:40px;color:#fff}
+        .abthdr h2{font-size:24px;font-weight:700}
+        .abthdr p{font-size:14px;color:var(--text3);margin-top:4px}
+        .flist{display:flex;flex-direction:column;gap:12px}
+        .fitem{display:flex;align-items:flex-start;gap:12px;padding:14px;background:var(--bg2);border-radius:12px}
+        .fitem svg{width:20px;height:20px;color:var(--green);flex-shrink:0;margin-top:2px}
+        .fitem p{font-size:14px;line-height:1.4}
+        .delbtn{width:100%;padding:14px;background:rgba(255,69,58,.15);border:none;border-radius:12px;color:var(--red);font-size:16px;font-weight:600;cursor:pointer;margin-top:12px}
+        .delbtn:active{background:rgba(255,69,58,.25)}
+        
+        /* Toast */
+        .toast{position:fixed;top:calc(20px + var(--safe-t));left:50%;transform:translateX(-50%) translateY(-100px);background:var(--bg3);border:1px solid var(--glass);border-radius:12px;padding:14px 20px;z-index:600;transition:transform .3s cubic-bezier(.32,.72,0,1);box-shadow:0 4px 20px rgba(0,0,0,.3)}
+        .toast.show{transform:translateX(-50%) translateY(0)}
+        .toast.ok{border-color:var(--green)}
+        .toast.err{border-color:var(--red)}
+    </style>
+</head>
+<body>
+    <div class="app">
+        <header class="hdr">
+            <h1 id="hdrT">Магазин</h1>
+            <p id="hdrS">Найди свой звук</p>
+        </header>
+        
+        <div class="srch show" id="srch">
+            <div class="srch-box">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                <input type="text" id="srchIn" placeholder="Поиск звуков...">
+            </div>
+        </div>
+        
+        <main class="cnt">
+            <!-- Shop -->
+            <div class="tab on" id="shopTab">
+                <div class="grid" id="shopGrid"></div>
+                <div class="ldng" id="shopLdng">
+                    <div class="spin"></div>
+                    <span>Загрузка звуков...</span>
+                </div>
+                <div class="endmsg" id="shopEnd">Больше звуков нет</div>
+            </div>
+            
+            <!-- Library -->
+            <div class="tab" id="libTab">
+                <div class="grid" id="libGrid"></div>
+                <div class="empty" id="libEmpty">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                    <h3>Библиотека пуста</h3>
+                    <p>Сохраняй звуки из магазина или создай свои</p>
+                </div>
+            </div>
+            
+            <!-- About -->
+            <div class="tab" id="abtTab">
+                <div class="abthdr">
+                    <div class="logo"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg></div>
+                    <h2>SoundBoard Pro</h2>
+                    <p>Версия 2.1.0</p>
+                </div>
+                <div class="card">
+                    <h3>Возможности</h3>
+                    <div class="flist">
+                        <div class="fitem"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg><p>Тысячи звуков из MyInstants</p></div>
+                        <div class="fitem"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg><p>Импорт из TikTok и MyInstants по ссылке</p></div>
+                        <div class="fitem"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg><p>Загрузка локальных аудио файлов</p></div>
+                        <div class="fitem"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg><p>Офлайн библиотека с сохранением</p></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Settings -->
+            <div class="tab" id="setTab">
+                <div class="card">
+                    <h3>Звук</h3>
+                    <div class="sitem">
+                        <div class="lbl"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg><span>Вибрация</span></div>
+                        <div class="toggle on" id="hapticT" onclick="toggleHaptic()"></div>
+                    </div>
+                    <div class="sitem">
+                        <div class="lbl"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg><span>Автоповтор</span></div>
+                        <div class="toggle" id="repeatT" onclick="toggleRepeat()"></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>Данные</h3>
+                    <div class="sitem">
+                        <div class="lbl"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/></svg><span>Использовано</span></div>
+                        <span id="storageU" style="color:var(--text2)">0 KB</span>
+                    </div>
+                </div>
+                <button class="delbtn" onclick="clearLib()">Очистить библиотеку</button>
+            </div>
+        </main>
+        
+        <!-- Mini Player -->
+        <div class="mplayer" id="mplayer">
+            <div class="mpart c-blue" id="mpart"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg></div>
+            <div class="mpinfo">
+                <div class="mpname" id="mpname">Sound</div>
+                <div class="mpwave" id="mpwave"></div>
+            </div>
+            <div class="mpctrls">
+                <button class="pbtn sm" onclick="playPrev()"><svg fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
+                <button class="pbtn" id="ppbtn" onclick="togglePlay()"><svg fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
+                <button class="pbtn sm" onclick="playNext()"><svg fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
+                <button class="pbtn sm" onclick="closePlayer()"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+            </div>
+        </div>
+        
+        <!-- FAB -->
+        <button class="fab" id="fab" onclick="openCreator()"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg></button>
+        
+        <!-- Nav -->
+        <nav class="nav">
+            <button class="nitem on" data-tab="shop" onclick="switchTab('shop')">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                <span>Магазин</span>
+            </button>
+            <button class="nitem" data-tab="lib" onclick="switchTab('lib')">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+                <span>Библиотека</span>
+            </button>
+            <button class="nitem" data-tab="abt" onclick="switchTab('abt')">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span>О приложении</span>
+            </button>
+            <button class="nitem" data-tab="set" onclick="switchTab('set')">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                <span>Настройки</span>
+            </button>
+        </nav>
+        
+        <!-- Context -->
+        <div class="ctx" id="ctx" onclick="closeCtx()">
+            <div class="ctxm" onclick="event.stopPropagation()">
+                <div class="ctxh"></div>
+                <div class="ctxt" id="ctxT">Sound</div>
+                <div class="ctxs" id="ctxS">MyInstants</div>
+                <div class="ctxa" id="ctxA"></div>
+            </div>
+        </div>
+        
+        <!-- Creator Modal -->
+        <div class="modal" id="modal">
+            <div class="modalc">
+                <div class="mhdr">
+                    <button class="mclose" onclick="closeCreator()"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+                    <span class="mtitle">Новый звук</span>
+                    <button class="msave" id="msave" onclick="saveSound()" disabled>Сохранить</button>
+                </div>
+                <div class="mbody">
+                    <div class="fgrp">
+                        <label>Источник аудио</label>
+                        <div class="srcopt">
+                            <button class="srcbtn" data-src="file" onclick="selectSrc('file')">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/></svg>
+                                <span>Файл</span>
+                            </button>
+                            <button class="srcbtn" data-src="myinstants" onclick="selectSrc('myinstants')">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                                <span>MyInstants</span>
+                            </button>
+                            <button class="srcbtn" data-src="tiktok" onclick="selectSrc('tiktok')">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                <span>TikTok</span>
+                            </button>
+                        </div>
+                        <input type="file" id="fileIn" accept="audio/*" style="display:none" onchange="handleFile(event)">
+                        <div class="urlinp" id="urlinp">
+                            <input type="url" id="urlIn" class="finput" placeholder="Вставьте ссылку...">
+                            <button id="loadBtn" onclick="loadUrl()">Загрузить</button>
+                        </div>
+                    </div>
+                    <div class="fgrp">
+                        <label>Название</label>
+                        <input type="text" id="titleIn" class="finput" placeholder="Введите название">
+                    </div>
+                    <div class="fgrp">
+                        <label>Цвет кнопки</label>
+                        <div class="colors">
+                            <div class="colopt on" data-c="blue" style="background:linear-gradient(145deg,#0a84ff,#0066cc)" onclick="selectCol('blue')"></div>
+                            <div class="colopt" data-c="purple" style="background:linear-gradient(145deg,#bf5af2,#8e3db8)" onclick="selectCol('purple')"></div>
+                            <div class="colopt" data-c="orange" style="background:linear-gradient(145deg,#ff9f0a,#e68a00)" onclick="selectCol('orange')"></div>
+                            <div class="colopt" data-c="pink" style="background:linear-gradient(145deg,#ff375f,#d62b4e)" onclick="selectCol('pink')"></div>
+                            <div class="colopt" data-c="green" style="background:linear-gradient(145deg,#30d158,#28a745)" onclick="selectCol('green')"></div>
+                            <div class="colopt" data-c="cyan" style="background:linear-gradient(145deg,#64d2ff,#4ab8e8)" onclick="selectCol('cyan')"></div>
+                        </div>
+                    </div>
+                    <div class="fgrp">
+                        <label>Предпросмотр</label>
+                        <div class="prev">
+                            <button class="prevbtn c-blue" id="prevBtn" onclick="playPrev2()">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+                                <span id="prevT">Звук</span>
+                            </button>
+                            <div class="audok" id="audok">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                Аудио загружено
+                            </div>
+                        </div>
+                    </div>
+                    <button class="savebtn" id="savebtn" onclick="saveSound()" disabled>Сохранить в библиотеку</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Toast -->
+        <div class="toast" id="toast"></div>
+    </div>
+
+<script>
+// ========== STATE ==========
+const S = {
+    tab: 'shop',
+    shop: [],
+    lib: [],
+    cur: null,
+    curIdx: -1,
+    playing: false,
+    query: '',
+    page: 1,
+    loading: false,
+    hasMore: true,
+    haptic: true,
+    repeat: false,
+    ctxSound: null,
+    creator: { src: null, audio: null, title: '', color: 'blue' }
+};
+
+const PROXY = 'https://api.allorigins.win/raw?url=';
+const audio = new Audio();
+audio.crossOrigin = 'anonymous';
+
+// ========== INIT ==========
+document.addEventListener('DOMContentLoaded', () => {
+    loadSettings();
+    loadLib();
+    loadShop();
+    setupScroll();
+    setupSearch();
+    initWave();
+    updateStorage();
+});
+
+function loadSettings() {
+    const s = localStorage.getItem('sb_set');
+    if (s) {
+        const d = JSON.parse(s);
+        S.haptic = d.haptic !== false;
+        S.repeat = d.repeat === true;
+        document.getElementById('hapticT').classList.toggle('on', S.haptic);
+        document.getElementById('repeatT').classList.toggle('on', S.repeat);
+    }
+}
+
+function saveSettings() {
+    localStorage.setItem('sb_set', JSON.stringify({ haptic: S.haptic, repeat: S.repeat }));
+}
+
+function loadLib() {
+    const d = localStorage.getItem('sb_lib');
+    if (d) {
+        S.lib = JSON.parse(d);
+        renderLib();
+    }
+}
+
+function saveLib() {
+    localStorage.setItem('sb_lib', JSON.stringify(S.lib));
+    updateStorage();
+}
+
+// ========== MYINSTANTS ==========
+async function loadShop() {
+    if (S.loading || !S.hasMore) return;
+    
+    S.loading = true;
+    document.getElementById('shopLdng').classList.remove('hide');
+    document.getElementById('shopEnd').classList.remove('show');
+    
+    try {
+        const q = S.query || 'meme';
+        const url = `https://www.myinstants.com/search/?name=${encodeURIComponent(q)}&page=${S.page}`;
+        const res = await fetch(PROXY + encodeURIComponent(url));
+        const html = await res.text();
+        
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const items = doc.querySelectorAll('.instant');
+        
+        if (items.length === 0) {
+            S.hasMore = false;
+            document.getElementById('shopEnd').classList.add('show');
+        } else {
+            const colors = ['blue', 'purple', 'orange', 'pink', 'green', 'cyan'];
+            const newSounds = [];
+            
+            items.forEach((item, i) => {
+                const link = item.querySelector('.instant-link');
+                const btn = item.querySelector('.small-button');
+                
+                if (link && btn) {
+                    const onclick = btn.getAttribute('onclick') || btn.getAttribute('onmousedown') || '';
+                    const match = onclick.match(/play\s*\(\s*['"]([^'"]+)['"]/);
+                    
+                    if (match) {
+                        let audioUrl = match[1];
+                        if (!audioUrl.startsWith('http')) {
+                            audioUrl = 'https://www.myinstants.com' + audioUrl;
+                        }
+                        
+                        newSounds.push({
+                            id: `s_${Date.now()}_${i}_${S.page}`,
+                            title: link.textContent.trim(),
+                            url: audioUrl,
+                            color: colors[(S.shop.length + i) % colors.length],
+                            src: 'shop'
+                        });
+                    }
+                }
+            });
+            
+            S.shop = [...S.shop, ...newSounds];
+            S.page++;
+            renderShop();
+            
+            if (newSounds.length < 8) {
+                S.hasMore = false;
+            }
+        }
+    } catch (e) {
+        console.error('Load error:', e);
+        toast('Ошибка загрузки', 'err');
+    }
+    
+    S.loading = false;
+    if (S.hasMore) {
+        document.getElementById('shopLdng').classList.add('hide');
+    } else {
+        document.getElementById('shopLdng').classList.add('hide');
+        document.getElementById('shopEnd').classList.add('show');
+    }
+}
+
+function setupScroll() {
+    const shopTab = document.getElementById('shopTab');
+    shopTab.addEventListener('scroll', () => {
+        if (S.tab !== 'shop' || S.loading || !S.hasMore) return;
+        
+        const { scrollTop, scrollHeight, clientHeight } = shopTab;
+        if (scrollHeight - scrollTop - clientHeight < 300) {
+            loadShop();
+        }
+    });
+}
+
+function setupSearch() {
+    let t;
+    document.getElementById('srchIn').addEventListener('input', e => {
+        clearTimeout(t);
+        t = setTimeout(() => {
+            S.query = e.target.value;
+            S.shop = [];
+            S.page = 1;
+            S.hasMore = true;
+            document.getElementById('shopGrid').innerHTML = '';
+            loadShop();
+        }, 500);
+    });
+}
+
+// ========== RENDER ==========
+function renderShop() {
+    const grid = document.getElementById('shopGrid');
+    grid.innerHTML = '';
+    S.shop.forEach((s, i) => grid.appendChild(createBtn(s, i, 'shop')));
+}
+
+function renderLib() {
+    const grid = document.getElementById('libGrid');
+    const empty = document.getElementById('libEmpty');
+    
+    grid.innerHTML = '';
+    
+    if (S.lib.length === 0) {
+        empty.style.display = 'flex';
+    } else {
+        empty.style.display = 'none';
+        S.lib.forEach((s, i) => grid.appendChild(createBtn(s, i, 'lib')));
+    }
+}
+
+function createBtn(sound, idx, src) {
+    const btn = document.createElement('button');
+    btn.className = `sbtn c-${sound.color}`;
+    btn.dataset.idx = idx;
+    btn.dataset.src = src;
+    btn.innerHTML = `
+        <svg class="sico" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+        <span class="stit">${esc(sound.title)}</span>
+    `;
+    
+    let timer, touched = false;
+    
+    btn.addEventListener('touchstart', e => {
+        touched = true;
+        timer = setTimeout(() => {
+            if (touched) {
+                haptic();
+                openCtx(sound, src);
+                touched = false;
+            }
+        }, 500);
+    }, { passive: true });
+    
+    btn.addEventListener('touchend', () => {
+        if (touched) {
+            clearTimeout(timer);
+            touched = false;
+            haptic();
+            playSound(sound, idx, src);
+        }
+    });
+    
+    btn.addEventListener('touchmove', () => {
+        clearTimeout(timer);
+        touched = false;
+    }, { passive: true });
+    
+    btn.addEventListener('click', e => {
+        if (!('ontouchstart' in window)) {
+            haptic();
+            playSound(sound, idx, src);
+        }
+    });
+    
+    btn.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        haptic();
+        openCtx(sound, src);
+    });
+    
+    return btn;
+}
+
+// ========== AUDIO ==========
+async function playSound(sound, idx, src) {
+    S.cur = sound;
+    S.curIdx = idx;
+    
+    document.querySelectorAll('.sbtn').forEach(b => b.classList.remove('play', 'load'));
+    const btn = document.querySelector(`.sbtn[data-idx="${idx}"][data-src="${src}"]`);
+    if (btn) btn.classList.add('load');
+    
+    try {
+        let audioUrl;
+        
+        if (sound.audio) {
+            // Library sound with base64 data
+            audioUrl = sound.audio;
+        } else if (sound.url) {
+            // Shop sound - try direct first, then proxy
+            try {
+                audio.src = sound.url;
+                await audio.play();
+                S.playing = true;
+                if (btn) { btn.classList.remove('load'); btn.classList.add('play'); }
+                showPlayer(sound);
+                return;
+            } catch {
+                // Try with proxy
+                const res = await fetch(PROXY + encodeURIComponent(sound.url));
+                const blob = await res.blob();
+                audioUrl = URL.createObjectURL(blob);
+            }
+        }
+        
+        if (audioUrl) {
+            audio.src = audioUrl;
+            await audio.play();
+            S.playing = true;
+            if (btn) { btn.classList.remove('load'); btn.classList.add('play'); }
+            showPlayer(sound);
+        }
+    } catch (e) {
+        console.error('Play error:', e);
+        if (btn) btn.classList.remove('load');
+        toast('Не удалось воспроизвести', 'err');
+    }
+}
+
+function showPlayer(sound) {
+    const player = document.getElementById('mplayer');
+    const art = document.getElementById('mpart');
+    const name = document.getElementById('mpname');
+    
+    art.className = `mpart c-${sound.color}`;
+    name.textContent = sound.title;
+    
+    player.classList.add('on');
+    document.querySelectorAll('.tab').forEach(t => t.classList.add('player'));
+    document.getElementById('fab').classList.add('player');
+    
+    updatePPBtn();
+    animateWave(true);
+}
+
+function closePlayer() {
+    haptic();
+    audio.pause();
+    audio.currentTime = 0;
+    S.playing = false;
+    S.cur = null;
+    
+    document.getElementById('mplayer').classList.remove('on');
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('player'));
+    document.getElementById('fab').classList.remove('player');
+    document.querySelectorAll('.sbtn').forEach(b => b.classList.remove('play', 'load'));
+    animateWave(false);
+}
+
+function togglePlay() {
+    haptic();
+    if (S.playing) {
+        audio.pause();
+        S.playing = false;
+        animateWave(false);
+    } else {
+        audio.play();
+        S.playing = true;
+        animateWave(true);
+    }
+    updatePPBtn();
+}
+
+function updatePPBtn() {
+    const btn = document.getElementById('ppbtn');
+    btn.innerHTML = S.playing 
+        ? '<svg fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>'
+        : '<svg fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+}
+
+function playPrev() {
+    haptic();
+    const list = S.cur && S.lib.find(x => x.id === S.cur.id) ? S.lib : S.shop;
+    if (S.curIdx > 0) {
+        const src = list === S.lib ? 'lib' : 'shop';
+        playSound(list[S.curIdx - 1], S.curIdx - 1, src);
+    }
+}
+
+function playNext() {
+    haptic();
+    const list = S.cur && S.lib.find(x => x.id === S.cur.id) ? S.lib : S.shop;
+    if (S.curIdx < list.length - 1) {
+        const src = list === S.lib ? 'lib' : 'shop';
+        playSound(list[S.curIdx + 1], S.curIdx + 1, src);
+    }
+}
+
+audio.addEventListener('ended', () => {
+    if (S.repeat) {
+        audio.currentTime = 0;
+        audio.play();
+    } else {
+        S.playing = false;
+        updatePPBtn();
+        animateWave(false);
+        document.querySelectorAll('.sbtn').forEach(b => b.classList.remove('play'));
+    }
+});
+
+// ========== WAVEFORM ==========
+let waveAnim;
+function initWave() {
+    const wave = document.getElementById('mpwave');
+    for (let i = 0; i < 12; i++) {
+        const bar = document.createElement('div');
+        bar.className = 'wbar';
+        bar.style.height = '4px';
+        wave.appendChild(bar);
+    }
+}
+
+function animateWave(on) {
+    cancelAnimationFrame(waveAnim);
+    const bars = document.querySelectorAll('.wbar');
+    
+    if (on) {
+        const animate = () => {
+            bars.forEach(bar => {
+                bar.style.height = (4 + Math.random() * 16) + 'px';
+            });
+            waveAnim = requestAnimationFrame(animate);
+        };
+        animate();
+    } else {
+        bars.forEach(bar => bar.style.height = '4px');
+    }
+}
+
+// ========== CONTEXT MENU ==========
+function openCtx(sound, src) {
+    S.ctxSound = { ...sound, source: src };
+    
+    document.getElementById('ctxT').textContent = sound.title;
+    document.getElementById('ctxS').textContent = src === 'lib' ? 'Моя библиотека' : 'MyInstants';
+    
+    const actions = document.getElementById('ctxA');
+    
+    if (src === 'lib') {
+        actions.innerHTML = `
+            <button class="ctxbtn" onclick="playCtx()">
+                <div class="ico c-blue"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/></svg></div>
+                <div><h4>Воспроизвести</h4><p>Запустить звук</p></div>
+            </button>
+            <button class="ctxbtn" onclick="delFromLib()">
+                <div class="ico" style="background:var(--red)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></div>
+                <div><h4>Удалить</h4><p>Убрать из библиотеки</p></div>
+            </button>
+        `;
+    } else {
+        actions.innerHTML = `
+            <button class="ctxbtn" onclick="saveToLib()">
+                <div class="ico c-green"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg></div>
+                <div><h4>Сохранить</h4><p>Добавить в библиотеку</p></div>
+            </button>
+            <button class="ctxbtn" onclick="playCtx()">
+                <div class="ico c-blue"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/></svg></div>
+                <div><h4>Воспроизвести</h4><p>Запустить звук</p></div>
+            </button>
+        `;
+    }
+    
+    document.getElementById('ctx').classList.add('on');
+}
+
+function closeCtx() {
+    document.getElementById('ctx').classList.remove('on');
+    S.ctxSound = null;
+}
+
+function playCtx() {
+    if (S.ctxSound) {
+        const src = S.ctxSound.source;
+        const list = src === 'lib' ? S.lib : S.shop;
+        const idx = list.findIndex(x => x.id === S.ctxSound.id);
+        if (idx >= 0) playSound(S.ctxSound, idx, src);
+    }
+    closeCtx();
+}
+
+async function saveToLib() {
+    if (!S.ctxSound) return;
+    
+    if (S.lib.find(x => x.title === S.ctxSound.title)) {
+        toast('Уже в библиотеке', 'err');
+        closeCtx();
+        return;
+    }
+    
+    toast('Загрузка...');
+    
+    try {
+        const res = await fetch(PROXY + encodeURIComponent(S.ctxSound.url));
+        const blob = await res.blob();
+        const audio64 = await blobTo64(blob);
+        
+        const newSound = {
+            id: `l_${Date.now()}`,
+            title: S.ctxSound.title,
+            color: S.ctxSound.color,
+            audio: audio64,
+            src: 'lib',
+            date: new Date().toISOString()
+        };
+        
+        S.lib.push(newSound);
+        saveLib();
+        renderLib();
+        
+        toast('Сохранено!', 'ok');
+    } catch (e) {
+        console.error('Save error:', e);
+        toast('Ошибка сохранения', 'err');
+    }
+    
+    closeCtx();
+}
+
+function delFromLib() {
+    if (!S.ctxSound) return;
+    S.lib = S.lib.filter(x => x.id !== S.ctxSound.id);
+    saveLib();
+    renderLib();
+    toast('Удалено', 'ok');
+    closeCtx();
+}
+
+// ========== CREATOR ==========
+function openCreator() {
+    haptic();
+    S.creator = { src: null, audio: null, title: '', color: 'blue' };
+    
+    document.getElementById('modal').classList.add('on');
+    document.getElementById('titleIn').value = '';
+    document.getElementById('urlIn').value = '';
+    document.getElementById('audok').classList.remove('show');
+    document.getElementById('urlinp').classList.remove('show');
+    document.querySelectorAll('.srcbtn').forEach(b => b.classList.remove('on'));
+    document.querySelectorAll('.colopt').forEach(c => c.classList.remove('on'));
+    document.querySelector('.colopt[data-c="blue"]').classList.add('on');
+    document.getElementById('prevBtn').className = 'prevbtn c-blue';
+    document.getElementById('prevT').textContent = 'Звук';
+    updateSaveBtn();
+}
+
+function closeCreator() {
+    haptic();
+    document.getElementById('modal').classList.remove('on');
+}
+
+function selectSrc(src) {
+    haptic();
+    S.creator.src = src;
+    
+    document.querySelectorAll('.srcbtn').forEach(b => b.classList.toggle('on', b.dataset.src === src));
+    
+    if (src === 'file') {
+        document.getElementById('fileIn').click();
+        document.getElementById('urlinp').classList.remove('show');
+    } else {
+        document.getElementById('urlinp').classList.add('show');
+        document.getElementById('urlIn').placeholder = src === 'myinstants' 
+            ? 'https://www.myinstants.com/instant/...' 
+            : 'https://www.tiktok.com/@user/video/...';
+    }
+}
+
+function selectCol(c) {
+    haptic();
+    S.creator.color = c;
+    document.querySelectorAll('.colopt').forEach(o => o.classList.toggle('on', o.dataset.c === c));
+    document.getElementById('prevBtn').className = `prevbtn c-${c}`;
+}
+
+async function handleFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    try {
+        const audio64 = await fileTo64(file);
+        S.creator.audio = audio64;
+        S.creator.title = file.name.replace(/\.[^/.]+$/, '');
+        
+        document.getElementById('titleIn').value = S.creator.title;
+        document.getElementById('prevT').textContent = S.creator.title.slice(0, 10) || 'Звук';
+        document.getElementById('audok').classList.add('show');
+        updateSaveBtn();
+        toast('Файл загружен!', 'ok');
+    } catch (e) {
+        console.error('File error:', e);
+        toast('Ошибка чтения файла', 'err');
+    }
+}
+
+async function loadUrl() {
+    const url = document.getElementById('urlIn').value.trim();
+    if (!url) return;
+    
+    haptic();
+    const btn = document.getElementById('loadBtn');
+    btn.disabled = true;
+    btn.textContent = 'Загрузка...';
+    
+    try {
+        if (S.creator.src === 'myinstants') {
+            await loadMyInstants(url);
+        } else if (S.creator.src === 'tiktok') {
+            await loadTikTok(url);
+        }
+    } catch (e) {
+        console.error('URL error:', e);
+        toast('Ошибка загрузки', 'err');
+    }
+    
+    btn.disabled = false;
+    btn.textContent = 'Загрузить';
+}
+
+async function loadMyInstants(url) {
+    try {
+        const res = await fetch(PROXY + encodeURIComponent(url));
+        const html = await res.text();
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        
+        // Get title
+        const titleEl = doc.querySelector('h1') || doc.querySelector('.instant-page-title');
+        const title = titleEl ? titleEl.textContent.trim() : 'MyInstants Sound';
+        
+        // Get audio URL
+        let audioUrl = null;
+        const scripts = doc.querySelectorAll('script');
+        for (const script of scripts) {
+            const match = script.textContent.match(/play\s*\(\s*['"]([^'"]+)['"]/);
+            if (match) {
+                audioUrl = match[1];
+                break;
+            }
+        }
+        
+        if (!audioUrl) {
+            const playBtn = doc.querySelector('[onclick*="play("]') || doc.querySelector('[onmousedown*="play("]');
+            if (playBtn) {
+                const onclick = playBtn.getAttribute('onclick') || playBtn.getAttribute('onmousedown');
+                const match = onclick.match(/play\s*\(\s*['"]([^'"]+)['"]/);
+                if (match) audioUrl = match[1];
+            }
+        }
+        
+        if (!audioUrl) throw new Error('Audio URL not found');
+        
+        if (!audioUrl.startsWith('http')) {
+            audioUrl = 'https://www.myinstants.com' + audioUrl;
+        }
+        
+        // Download audio
+        const audioRes = await fetch(PROXY + encodeURIComponent(audioUrl));
+        const blob = await audioRes.blob();
+        const audio64 = await blobTo64(blob);
+        
+        S.creator.audio = audio64;
+        S.creator.title = title;
+        
+        document.getElementById('titleIn').value = title;
+        document.getElementById('prevT').textContent = title.slice(0, 10);
+        document.getElementById('audok').classList.add('show');
+        updateSaveBtn();
+        toast('Загружено!', 'ok');
+    } catch (e) {
+        console.error('MyInstants error:', e);
+        toast('Не удалось загрузить', 'err');
+    }
+}
+
+async function loadTikTok(url) {
+    try {
+        // Try multiple TikTok download APIs
+        const apis = [
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://www.tikwm.com/api/?url=${encodeURIComponent(url)}`)}`,
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://tikdown.org/api/analyze?url=${encodeURIComponent(url)}`)}`
+        ];
+        
+        let data = null;
+        for (const api of apis) {
+            try {
+                const res = await fetch(api);
+                data = await res.json();
+                if (data && (data.data || data.music)) break;
+            } catch {}
+        }
+        
+        if (data && data.data) {
+            const musicUrl = data.data.music || data.data.play;
+            const title = data.data.title || data.data.music_info?.title || 'TikTok Sound';
+            
+            if (musicUrl) {
+                const audioRes = await fetch(PROXY + encodeURIComponent(musicUrl));
+                const blob = await audioRes.blob();
+                const audio64 = await blobTo64(blob);
+                
+                S.creator.audio = audio64;
+                S.creator.title = title.slice(0, 50);
+                
+                document.getElementById('titleIn').value = S.creator.title;
+                document.getElementById('prevT').textContent = S.creator.title.slice(0, 10);
+                document.getElementById('audok').classList.add('show');
+                updateSaveBtn();
+                toast('TikTok звук загружен!', 'ok');
+                return;
+            }
+        }
+        
+        throw new Error('Could not extract TikTok audio');
+    } catch (e) {
+        console.error('TikTok error:', e);
+        toast('Не удалось загрузить из TikTok', 'err');
+    }
+}
+
+function playPrev2() {
+    haptic();
+    if (S.creator.audio) {
+        const a = new Audio(S.creator.audio);
+        a.play();
+    } else {
+        toast('Сначала загрузите аудио');
+    }
+}
+
+function updateSaveBtn() {
+    const ok = !!S.creator.audio;
+    document.getElementById('savebtn').disabled = !ok;
+    document.getElementById('msave').disabled = !ok;
+}
+
+function saveSound() {
+    const title = document.getElementById('titleIn').value.trim() || S.creator.title || 'Новый звук';
+    
+    if (!S.creator.audio) {
+        toast('Загрузите аудио', 'err');
+        return;
+    }
+    
+    haptic();
+    
+    const newSound = {
+        id: `l_${Date.now()}`,
+        title: title,
+        color: S.creator.color,
+        audio: S.creator.audio,
+        src: 'lib',
+        date: new Date().toISOString()
+    };
+    
+    S.lib.push(newSound);
+    saveLib();
+    renderLib();
+    
+    closeCreator();
+    switchTab('lib');
+    toast('Звук создан!', 'ok');
+}
+
+// ========== NAV ==========
+function switchTab(tab) {
+    S.tab = tab;
+    
+    document.querySelectorAll('.nitem').forEach(n => n.classList.toggle('on', n.dataset.tab === tab));
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.id === tab + 'Tab'));
+    
+    const titles = {
+        shop: ['Магазин', 'Найди свой звук'],
+        lib: ['Библиотека', 'Твои звуки'],
+        abt: ['О приложении', 'SoundBoard Pro'],
+        set: ['Настройки', 'Настрой под себя']
+    };
+    
+    document.getElementById('hdrT').textContent = titles[tab][0];
+    document.getElementById('hdrS').textContent = titles[tab][1];
+    
+    document.getElementById('srch').classList.toggle('show', tab === 'shop');
+    document.getElementById('fab').classList.toggle('on', tab === 'lib');
+}
+
+// ========== SETTINGS ==========
+function toggleHaptic() {
+    S.haptic = !S.haptic;
+    document.getElementById('hapticT').classList.toggle('on', S.haptic);
+    saveSettings();
+    haptic();
+}
+
+function toggleRepeat() {
+    haptic();
+    S.repeat = !S.repeat;
+    document.getElementById('repeatT').classList.toggle('on', S.repeat);
+    saveSettings();
+}
+
+function clearLib() {
+    if (!confirm('Удалить все звуки из библиотеки?')) return;
+    haptic();
+    S.lib = [];
+    saveLib();
+    renderLib();
+    toast('Библиотека очищена', 'ok');
+}
+
+function updateStorage() {
+    const d = localStorage.getItem('sb_lib') || '';
+    const kb = (new Blob([d]).size / 1024).toFixed(1);
+    const mb = (new Blob([d]).size / (1024 * 1024)).toFixed(2);
+    document.getElementById('storageU').textContent = kb > 1024 ? `${mb} MB` : `${kb} KB`;
+}
+
+// ========== UTILS ==========
+function haptic() {
+    if (S.haptic && navigator.vibrate) navigator.vibrate(10);
+}
+
+function toast(msg, type = '') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = `toast show ${type}`;
+    setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function esc(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+}
+
+function blobTo64(blob) {
+    return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onloadend = () => resolve(r.result);
+        r.onerror = reject;
+        r.readAsDataURL(blob);
+    });
+}
+
+function fileTo64(file) {
+    return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onloadend = () => resolve(r.result);
+        r.onerror = reject;
+        r.readAsDataURL(file);
+    });
+}
+
+// MediaSession
+if ('mediaSession' in navigator) {
+    navigator.mediaSession.setActionHandler('play', () => { audio.play(); S.playing = true; updatePPBtn(); animateWave(true); });
+    navigator.mediaSession.setActionHandler('pause', () => { audio.pause(); S.playing = false; updatePPBtn(); animateWave(false); });
+    navigator.mediaSession.setActionHandler('previoustrack', playPrev);
+    navigator.mediaSession.setActionHandler('nexttrack', playNext);
+}
+
+audio.addEventListener('play', () => {
+    if ('mediaSession' in navigator && S.cur) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: S.cur.title,
+            artist: 'SoundBoard Pro',
+            album: 'Sound Effects'
+        });
+    }
+});
+
+// Title input listener
+document.getElementById('titleIn').addEventListener('input', e => {
+    S.creator.title = e.target.value;
+    document.getElementById('prevT').textContent = e.target.value.slice(0, 10) || 'Звук';
+});
+</script>
+</body>
+</html>
